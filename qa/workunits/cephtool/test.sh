@@ -271,7 +271,7 @@ kill $wpid
 
 ceph osd pool create fs_data 10
 ceph osd pool create fs_metadata 10
-ceph fs new default fs_metadata fs_data
+ceph fs new cephfs fs_metadata fs_data
 
 ceph mds cluster_down
 ceph mds cluster_up
@@ -331,7 +331,7 @@ ceph mds stat
 # ceph mds set_state
 # ceph mds stop
 
-ceph fs rm default --yes-i-really-mean-it
+ceph fs rm cephfs --yes-i-really-mean-it
 ceph osd pool delete fs_data fs_data --yes-i-really-really-mean-it
 ceph osd pool delete fs_metadata fs_metadata --yes-i-really-really-mean-it
 
