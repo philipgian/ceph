@@ -198,6 +198,7 @@ private:
    * @defgroup Inner classes
    * @{
    */
+  string lname;
 
 public:
   Accepter accepter;

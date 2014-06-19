@@ -16,6 +16,7 @@
 #ifndef CEPH_MOSDOP_H
 #define CEPH_MOSDOP_H
 
+#include <ztracer.hpp>
 #include "msg/Message.h"
 #include "osd/osd_types.h"
 #include "include/ceph_features.h"
@@ -333,6 +334,20 @@ struct ceph_osd_request_head {
       else
 	retry_attempt = -1;
     }
+
+
+
+    ostringstream oss;
+    oss << get_reqid();
+    string name = oss.str();
+
+    //FIXME replace new trace with child if parent info provided in payload
+    ZTracer::ZTraceEndpointRef ep;
+    Messenger *m = connection->get_messenger();
+    ep = m->msgr_blkin_ep;
+    master_span = ZTracer::create_ZTrace(name, ep);
+
+    messenger_span = ZTracer::create_ZTrace("Messenger", master_span);
 
     OSDOp::split_osd_op_vector_in_data(ops, data);
   }

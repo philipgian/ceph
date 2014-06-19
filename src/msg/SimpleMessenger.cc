@@ -49,6 +49,7 @@ SimpleMessenger::SimpleMessenger(CephContext *cct, entity_name_t name,
     global_seq(0),
     cluster_protocol(0),
     policy_lock("SimpleMessenger::policy_lock"),
+    lname(mname),
     dispatch_throttler(cct, string("msgr_dispatch_throttler-") + mname, cct->_conf->ms_dispatch_throttle_bytes),
     reaper_started(false), reaper_stop(false),
     timeout(0),
@@ -56,6 +57,8 @@ SimpleMessenger::SimpleMessenger(CephContext *cct, entity_name_t name,
 {
   ceph_spin_init(&global_seq_lock);
   init_local_connection();
+  string endp_name = "Messenger-" + lname;
+  msgr_blkin_ep = ZTracer::create_ZTraceEndpoint("", 0, endp_name);
 }
 
 /**

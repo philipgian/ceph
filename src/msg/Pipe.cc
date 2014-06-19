@@ -1472,6 +1472,9 @@ void Pipe::reader()
       Message *m = 0;
       int r = read_message(&m, auth_handler.get());
 
+      if (m->messenger_span)
+	      m->messenger_span->event("Message read");
+
       pipe_lock.Lock();
       
       if (!m) {
@@ -1526,8 +1529,8 @@ void Pipe::reader()
       } else {
 	in_q->enqueue(m, m->get_priority(), conn_id);
       }
-    } 
-    
+    }
+
     else if (tag == CEPH_MSGR_TAG_CLOSE) {
       ldout(msgr->cct,20) << "reader got CLOSE" << dendl;
       pipe_lock.Lock();

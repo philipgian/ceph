@@ -17,6 +17,7 @@
  
 #include <stdlib.h>
 #include <ostream>
+#include <ztracer.hpp>
 
 #include <boost/intrusive_ptr.hpp>
 // Because intusive_ptr clobbers our assert...
@@ -306,6 +307,10 @@ typedef boost::intrusive_ptr<Connection> ConnectionRef;
 // abstract Message class
 
 class Message : public RefCountedObject {
+public:
+	ZTracer::ZTraceRef master_span;
+	ZTracer::ZTraceRef messenger_span;
+
 protected:
   ceph_msg_header  header;      // headerelope
   ceph_msg_footer  footer;

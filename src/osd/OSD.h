@@ -15,6 +15,7 @@
 #ifndef CEPH_OSD_H
 #define CEPH_OSD_H
 
+#include <ztracer.hpp>
 #include "boost/tuple/tuple.hpp"
 
 #include "PG.h"
@@ -53,7 +54,6 @@ using namespace std;
 #include "common/simple_cache.hpp"
 #include "common/sharedptr_registry.hpp"
 #include "common/PrioritizedQueue.h"
-
 #define CEPH_OSD_PROTOCOL    10 /* cluster internal */
 
 
@@ -821,6 +821,7 @@ protected:
   void tick();
   void _dispatch(Message *m);
   void dispatch_op(OpRequestRef op);
+  ZTracer::ZTraceEndpointRef osd_endpoint;
 
   void check_osdmap_features(ObjectStore *store);
 

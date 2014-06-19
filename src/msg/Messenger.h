@@ -20,6 +20,7 @@
 #include <map>
 using namespace std;
 
+#include <ztracer.hpp>
 #include "Message.h"
 #include "Dispatcher.h"
 #include "common/Mutex.h"
@@ -53,6 +54,7 @@ public:
    *  from this value.
    */
   CephContext *cct;
+  ZTracer::ZTraceEndpointRef msgr_blkin_ep;
 
   /**
    * A Policy describes the rules of a Connection. Is there a limit on how
@@ -88,6 +90,7 @@ public:
 	throttler_messages(NULL),
 	features_supported(CEPH_FEATURES_SUPPORTED_DEFAULT),
 	features_required(0) {}
+
   private:
     Policy(bool l, bool s, bool st, bool r, uint64_t sup, uint64_t req)
       : lossy(l), server(s), standby(st), resetcheck(r),

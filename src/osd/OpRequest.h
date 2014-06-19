@@ -16,6 +16,7 @@
 #include <sstream>
 #include <stdint.h>
 #include <vector>
+#include <ztracer.hpp>
 
 #include <include/utime.h>
 #include "common/Mutex.h"
@@ -85,6 +86,8 @@ private:
   static const uint8_t flag_started =     1 << 3;
   static const uint8_t flag_sub_op_sent = 1 << 4;
   static const uint8_t flag_commit_sent = 1 << 5;
+
+  ZTracer::ZTraceRef osd_span;
 
   OpRequest(Message *req, OpTracker *tracker);
 
@@ -164,6 +167,9 @@ public:
   }
 
   void init_from_message();
+
+  ZTracer::ZTraceRef get_osd_span();
+  int create_osd_span(ZTracer::ZTraceEndpointRef osd_ep);
 
   typedef ceph::shared_ptr<OpRequest> Ref;
 };

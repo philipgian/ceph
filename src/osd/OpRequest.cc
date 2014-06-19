@@ -13,7 +13,6 @@
 #include "osd/osd_types.h"
 
 
-
 OpRequest::OpRequest(Message *req, OpTracker *tracker) :
   TrackedOp(req, tracker),
   rmw_flags(0),
@@ -84,3 +83,15 @@ void OpRequest::set_class_read() { rmw_flags |= CEPH_OSD_RMW_FLAG_CLASS_READ; }
 void OpRequest::set_class_write() { rmw_flags |= CEPH_OSD_RMW_FLAG_CLASS_WRITE; }
 void OpRequest::set_pg_op() { rmw_flags |= CEPH_OSD_RMW_FLAG_PGOP; }
 void OpRequest::set_cache() { rmw_flags |= CEPH_OSD_RMW_FLAG_CACHE; }
+
+ZTracer::ZTraceRef OpRequest::get_osd_span()
+{
+
+	return osd_span;
+}
+int OpRequest::create_osd_span(ZTracer::ZTraceEndpointRef osd_ep)
+{
+	string name = "OSD";
+	osd_span = ZTracer::create_ZTrace(name, request->master_span, osd_ep);
+	return 0;
+}
