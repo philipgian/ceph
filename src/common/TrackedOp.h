@@ -13,6 +13,7 @@
 
 #ifndef TRACKEDREQUEST_H_
 #define TRACKEDREQUEST_H_
+#include <ztracer.hpp>
 #include <sstream>
 #include <stdint.h>
 #include <include/utime.h>
@@ -24,6 +25,8 @@
 
 class TrackedOp;
 typedef ceph::shared_ptr<TrackedOp> TrackedOpRef;
+typedef ZTracer::ZTraceEndpointRef TrackedOpEndpoint;
+typedef ZTracer::ZTraceRef TrackedOpTrace;
 
 class OpTracker;
 class OpHistory {
@@ -98,6 +101,9 @@ public:
   void mark_event(TrackedOp *op, const string &evt);
   void _mark_event(TrackedOp *op, const string &evt, utime_t now);
 
+  void trace_event(TrackedOp *op, TrackedOpTrace t, const string &evt);
+  void trace_keyval(TrackedOp *op, TrackedOpTrace t, const string &key,
+		    const string &val);
   void on_shutdown() {
     Mutex::Locker l(ops_in_flight_lock);
     history.on_shutdown();
@@ -128,6 +134,9 @@ private:
   friend class OpHistory;
   friend class OpTracker;
   xlist<TrackedOp*>::item xitem;
+  TrackedOpTrace osd_trace;
+  TrackedOpTrace pg_trace;
+  TrackedOpTrace journal_trace;
 protected:
   Message *request; /// the logical request we are tracking
   OpTracker *tracker; /// the tracker we are associated with
@@ -175,6 +184,13 @@ public:
     return events.rbegin()->second.c_str();
   }
   void dump(utime_t now, Formatter *f) const;
+
+  bool create_osd_trace(TrackedOpEndpoint ep);
+  void trace_osd(string event);
+  bool create_pg_trace(TrackedOpEndpoint ep);
+  void trace_pg(string event);
+  bool create_journal_trace(TrackedOpEndpoint ep);
+  void trace_journal(string event);
 };
 
 #endif

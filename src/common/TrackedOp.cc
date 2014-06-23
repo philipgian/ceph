@@ -240,6 +240,21 @@ void OpTracker::_mark_event(TrackedOp *op, const string &evt,
 	  << ", request: " << *op->request << dendl;
 }
 
+void OpTracker::trace_event(TrackedOp *op, TrackedOpTrace t, const string &evt)
+{
+  //if (!tracking_enabled)
+  //  return;
+  t->event(evt);
+}
+
+void OpTracker::trace_keyval(TrackedOp *op, TrackedOpTrace t, const string &key,
+			     const string &val)
+{
+  //if (!tracking_enabled)
+  //  return;
+  t->keyval(key, val);
+}
+
 void OpTracker::RemoveOnDelete::operator()(TrackedOp *op) {
   if (!tracker->tracking_enabled) {
     op->request->clear_data();
@@ -276,4 +291,67 @@ void TrackedOp::dump(utime_t now, Formatter *f) const
     _dump(now, f);
     f->close_section();
   }
+}
+
+bool TrackedOp::create_osd_trace(TrackedOpEndpoint ep)
+{
+  string name = "OSD";
+  if (!request)
+    return false;
+
+  TrackedOpTrace master_trace = request->get_trace();
+  if (!master_trace)
+    return false;
+
+  osd_trace = ZTracer::create_ZTrace(name, master_trace, ep);
+  return true;
+}
+
+void TrackedOp::trace_osd(string event)
+{
+  if (!osd_trace)
+    return;
+  tracker->trace_event(this, osd_trace, event);
+}
+
+bool TrackedOp::create_pg_trace(TrackedOpEndpoint ep)
+{
+  string name = "PG";
+  if (!request)
+    return false;
+
+  TrackedOpTrace master_trace = request->get_trace();
+  if (!master_trace)
+    return false;
+
+  pg_trace = ZTracer::create_ZTrace(name, master_trace, ep);
+  return true;
+}
+
+void TrackedOp::trace_pg(string event)
+{
+  if (!pg_trace)
+    return;
+  tracker->trace_event(this, pg_trace, event);
+}
+
+bool TrackedOp::create_journal_trace(TrackedOpEndpoint ep)
+{
+  string name = "JOURNAL";
+  if (!request)
+    return false;
+
+  TrackedOpTrace master_trace = request->get_trace();
+  if (!master_trace)
+    return false;
+
+  journal_trace = ZTracer::create_ZTrace(name, master_trace, ep);
+  return true;
+}
+
+void TrackedOp::trace_journal(string event)
+{
+  if (!journal_trace)
+    return;
+  tracker->trace_event(this, journal_trace, event);
 }

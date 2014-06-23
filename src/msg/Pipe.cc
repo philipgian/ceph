@@ -1472,8 +1472,9 @@ void Pipe::reader()
       Message *m = 0;
       int r = read_message(&m, auth_handler.get());
 
-      if (m->messenger_span)
-	      m->messenger_span->event("Message read");
+      ZTracer::ZTraceRef messenger_trace = m->get_messenger_trace();
+      if (messenger_trace)
+	      messenger_trace->event("Message read");
 
       pipe_lock.Lock();
       
@@ -1529,6 +1530,8 @@ void Pipe::reader()
       } else {
 	in_q->enqueue(m, m->get_priority(), conn_id);
       }
+      if (messenger_trace)
+	      messenger_trace->event("Messenger end");
     }
 
     else if (tag == CEPH_MSGR_TAG_CLOSE) {

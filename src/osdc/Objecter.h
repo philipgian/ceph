@@ -53,6 +53,7 @@ struct ObjectOperation {
   vector<OSDOp> ops;
   int flags;
   int priority;
+  TrackedOpTrace trace;
 
   vector<bufferlist*> out_bl;
   vector<Context*> out_handler;
@@ -69,6 +70,8 @@ struct ObjectOperation {
   size_t size() {
     return ops.size();
   }
+
+  void set_trace(TrackedOpTrace t) { trace = t; }
 
   void set_last_op_flags(int flags) {
     assert(!ops.empty());
@@ -1129,6 +1132,7 @@ public:
     epoch_t map_dne_bound;
 
     bool budgeted;
+    TrackedOpTrace trace;
 
     /// true if we should resend this message on failure
     bool should_resend;
@@ -1169,6 +1173,7 @@ public:
       }
     }
 
+    void set_trace(TrackedOpTrace t) { trace = t; }
     bool operator<(const Op& other) const {
       return tid < other.tid;
     }

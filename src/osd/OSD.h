@@ -15,7 +15,6 @@
 #ifndef CEPH_OSD_H
 #define CEPH_OSD_H
 
-#include <ztracer.hpp>
 #include "boost/tuple/tuple.hpp"
 
 #include "PG.h"
@@ -791,6 +790,7 @@ protected:
   AuthAuthorizeHandlerRegistry *authorize_handler_cluster_registry;
   AuthAuthorizeHandlerRegistry *authorize_handler_service_registry;
 
+  TrackedOpEndpoint osd_endpoint;
   Messenger   *cluster_messenger;
   Messenger   *client_messenger;
   Messenger   *objecter_messenger;
@@ -821,7 +821,6 @@ protected:
   void tick();
   void _dispatch(Message *m);
   void dispatch_op(OpRequestRef op);
-  ZTracer::ZTraceEndpointRef osd_endpoint;
 
   void check_osdmap_features(ObjectStore *store);
 

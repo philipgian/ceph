@@ -54,7 +54,6 @@ public:
    *  from this value.
    */
   CephContext *cct;
-  ZTracer::ZTraceEndpointRef msgr_blkin_ep;
 
   /**
    * A Policy describes the rules of a Connection. Is there a limit on how

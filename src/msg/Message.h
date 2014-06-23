@@ -18,7 +18,6 @@
 #include <stdlib.h>
 #include <ostream>
 #include <ztracer.hpp>
-
 #include <boost/intrusive_ptr.hpp>
 // Because intusive_ptr clobbers our assert...
 #include "include/assert.h"
@@ -307,17 +306,13 @@ typedef boost::intrusive_ptr<Connection> ConnectionRef;
 // abstract Message class
 
 class Message : public RefCountedObject {
-public:
-	ZTracer::ZTraceRef master_span;
-	ZTracer::ZTraceRef messenger_span;
-
 protected:
   ceph_msg_header  header;      // headerelope
   ceph_msg_footer  footer;
   bufferlist       payload;  // "front" unaligned blob
   bufferlist       middle;   // "middle" unaligned blob
   bufferlist       data;     // data payload (page-alignment will be preserved where possible)
-  
+
   /* recv_stamp is set when the Messenger starts reading the
    * Message off the wire */
   utime_t recv_stamp;
@@ -344,6 +339,9 @@ protected:
   // queue locally (not via read_message()), and those are not
   // currently throttled.
   uint64_t dispatch_throttle_size;
+
+  ZTracer::ZTraceRef master_trace;
+  ZTracer::ZTraceRef messenger_trace;
 
   friend class Messenger;
 
@@ -399,6 +397,10 @@ public:
   void set_header(const ceph_msg_header &e) { header = e; }
   void set_footer(const ceph_msg_footer &e) { footer = e; }
   ceph_msg_footer &get_footer() { return footer; }
+  ZTracer::ZTraceRef get_trace() { return master_trace; }
+  void set_trace(ZTracer::ZTraceRef t) { master_trace= t; }
+  ZTracer::ZTraceRef get_messenger_trace() { return messenger_trace; }
+  void set_messenger_trace(ZTracer::ZTraceRef t) { messenger_trace = t; }
 
   /*
    * If you use get_[data, middle, payload] you shouldn't

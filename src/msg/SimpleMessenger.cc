@@ -57,8 +57,6 @@ SimpleMessenger::SimpleMessenger(CephContext *cct, entity_name_t name,
 {
   ceph_spin_init(&global_seq_lock);
   init_local_connection();
-  string endp_name = "Messenger-" + lname;
-  msgr_blkin_ep = ZTracer::create_ZTraceEndpoint("", 0, endp_name);
 }
 
 /**

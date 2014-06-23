@@ -15,7 +15,7 @@
 #include <limits.h>
 
 #include "IoCtxImpl.h"
-
+#include <ztracer.hpp>
 #include "librados/AioCompletionImpl.h"
 #include "librados/PoolAsyncCompletionImpl.h"
 #include "librados/RadosClient.h"
@@ -523,6 +523,7 @@ int librados::IoCtxImpl::operate(const object_t& oid, ::ObjectOperation *o,
   Objecter::Op *objecter_op = objecter->prepare_mutate_op(oid, oloc,
 	                                                  *o, snapc, ut, flags,
 	                                                  NULL, oncommit, &ver);
+  objecter_op->set_trace(o->trace);
   lock->Lock();
   objecter->op_submit(objecter_op);
   lock->Unlock();

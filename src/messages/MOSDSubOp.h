@@ -25,7 +25,7 @@
 
 class MOSDSubOp : public Message {
 
-  static const int HEAD_VERSION = 10;
+  static const int HEAD_VERSION = 11;
   static const int COMPAT_VERSION = 1;
 
 public:
@@ -102,6 +102,7 @@ public:
   virtual void decode_payload() {
     hobject_incorrect_pool = false;
     bufferlist::iterator p = payload.begin();
+    struct blkin_trace_info tinfo;
     ::decode(map_epoch, p);
     ::decode(reqid, p);
     ::decode(pgid.pgid, p);
@@ -175,6 +176,34 @@ public:
     if (header.version >= 10) {
       ::decode(updated_hit_set_history, p);
     }
+
+    if (header.version >= 11) {
+      ::decode(tinfo.trace_id, p);
+      ::decode(tinfo.span_id, p);
+      ::decode(tinfo.parent_span_id, p);
+    } else {
+      tinfo.trace_id = 0;
+      tinfo.span_id = 0;
+      tinfo.parent_span_id= 0;
+    }
+
+    ostringstream oss;
+    oss << reqid;
+    string name = oss.str();
+
+    //FIXME get a better endpoint
+    ZTracer::ZTraceRef mt, msgr_trace;
+    TrackedOpEndpoint ep = ZTracer::create_ZTraceEndpoint("", 0, "MOSDSubOp");
+
+    if (!tinfo.trace_id && !tinfo.span_id && !tinfo.parent_span_id)
+      mt = ZTracer::create_ZTrace(name, ep);
+    else
+      mt = ZTracer::create_ZTrace(name, ep, &tinfo);
+
+    set_trace(mt);
+
+    msgr_trace = ZTracer::create_ZTrace("Messenger", mt);
+    set_messenger_trace(msgr_trace);
   }
 
   virtual void encode_payload(uint64_t features) {
@@ -182,6 +211,7 @@ public:
     ::encode(reqid, payload);
     ::encode(pgid.pgid, payload);
     ::encode(poid, payload);
+    ZTracer::ZTraceRef mt = get_trace(); //master_trace
 
     __u32 num_ops = ops.size();
     ::encode(num_ops, payload);
@@ -224,6 +254,20 @@ public:
     ::encode(from, payload);
     ::encode(pgid.shard, payload);
     ::encode(updated_hit_set_history, payload);
+
+    if (mt) {
+      struct blkin_trace_info info;
+      mt->get_trace_info(&info);
+      ::encode(info.trace_id, payload);
+      ::encode(info.span_id, payload);
+      ::encode(info.parent_span_id, payload);
+    } else {
+      int64_t zero = 0;
+      ::encode(zero, payload);
+      ::encode(zero, payload);
+      ::encode(zero, payload);
+    }
+
   }
 
   MOSDSubOp()
