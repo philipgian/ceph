@@ -127,6 +127,7 @@ public:
     : Message(CEPH_MSG_OSD_OPREPLY, HEAD_VERSION, COMPAT_VERSION) { }
   MOSDOpReply(MOSDOp *req, int r, epoch_t e, int acktype, bool ignore_out_data)
     : Message(CEPH_MSG_OSD_OPREPLY, HEAD_VERSION, COMPAT_VERSION) {
+    set_trace_info(req->get_trace_info());
     set_tid(req->get_tid());
     ops = req->ops;
     result = r;
@@ -150,7 +151,7 @@ private:
 
 public:
   virtual void encode_payload(uint64_t features) {
-    ZTracer::ZTraceRef mt = get_trace(); //master_trace
+    struct blkin_trace_info *tinfo = get_trace_info();
     OSDOp::merge_osd_op_vector_out_data(ops, data);
 
     if ((features & CEPH_FEATURE_PGID64) == 0) {
@@ -191,24 +192,18 @@ public:
       ::encode(user_version, payload);
       ::encode(redirect, payload);
   
-      if (mt) {
-	struct blkin_trace_info info;
-	mt->get_trace_info(&info);
-	::encode(info.trace_id, payload);
-	::encode(info.span_id, payload);
-	::encode(info.parent_span_id, payload);
-      } else {
-	int64_t zero = 0;
-	::encode(zero, payload);
-	::encode(zero, payload);
-	::encode(zero, payload);
+      ::encode(tinfo->trace_id, payload);
+      ::encode(tinfo->span_id, payload);
+      ::encode(tinfo->parent_span_id, payload);
     }
 
-    }
   }
   virtual void decode_payload() {
     bufferlist::iterator p = payload.begin();
     struct blkin_trace_info tinfo;
+    tinfo.trace_id = 0;
+    tinfo.span_id = 0;
+    tinfo.parent_span_id = 0;
     if (header.version < 2) {
       ceph_osd_reply_head head;
       ::decode(head, p);
@@ -266,26 +261,7 @@ public:
 	::decode(tinfo.span_id, p);
 	::decode(tinfo.parent_span_id, p);
       }
-
-      ostringstream oss;
-      //FIXME reqid
-      oss << get_oid();
-      string name = oss.str();
-
-      //FIXME get a better endpoint
-      ZTracer::ZTraceRef mt, msgr_trace;
-      TrackedOpEndpoint ep = ZTracer::create_ZTraceEndpoint("", 0, "MOSDOpReply");
-
-      if (!tinfo.trace_id && !tinfo.span_id && !tinfo.parent_span_id)
-	mt = ZTracer::create_ZTrace(name, ep);
-      else
-	mt = ZTracer::create_ZTrace(name, ep, &tinfo);
-
-      set_trace(mt);
-
-      msgr_trace = ZTracer::create_ZTrace("Messenger", mt);
-      set_messenger_trace(msgr_trace);
-
+      init_trace_info(&tinfo);
     }
   }
 

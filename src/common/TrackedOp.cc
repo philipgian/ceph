@@ -299,11 +299,14 @@ bool TrackedOp::create_osd_trace(TrackedOpEndpoint ep)
   if (!request)
     return false;
 
-  TrackedOpTrace master_trace = request->get_trace();
-  if (!master_trace)
+  struct blkin_trace_info *tinfo = request->get_trace_info();
+  if (!tinfo)
     return false;
 
-  osd_trace = ZTracer::create_ZTrace(name, master_trace, ep);
+  if (tinfo->trace_id == 0 && tinfo->span_id == 0 && tinfo->parent_span_id == 0)
+    return false;
+
+  osd_trace = ZTracer::create_ZTrace(name, ep, tinfo);
   return true;
 }
 
@@ -320,11 +323,14 @@ bool TrackedOp::create_pg_trace(TrackedOpEndpoint ep)
   if (!request)
     return false;
 
-  TrackedOpTrace master_trace = request->get_trace();
-  if (!master_trace)
+  struct blkin_trace_info *tinfo = request->get_trace_info();
+  if (!tinfo)
     return false;
 
-  pg_trace = ZTracer::create_ZTrace(name, master_trace, ep);
+  if (tinfo->trace_id == 0 && tinfo->span_id == 0 && tinfo->parent_span_id == 0)
+    return false;
+
+  pg_trace = ZTracer::create_ZTrace(name, ep, tinfo);
   return true;
 }
 
@@ -335,17 +341,23 @@ void TrackedOp::trace_pg(string event)
   tracker->trace_event(this, pg_trace, event);
 }
 
+void TrackedOp::get_pg_trace_info(struct blkin_trace_info *info)
+{
+  if (!pg_trace)
+    return;
+  pg_trace->get_trace_info(info);
+}
+
 bool TrackedOp::create_journal_trace(TrackedOpEndpoint ep)
 {
   string name = "JOURNAL";
   if (!request)
     return false;
 
-  TrackedOpTrace master_trace = request->get_trace();
-  if (!master_trace)
+  if (!pg_trace)
     return false;
 
-  journal_trace = ZTracer::create_ZTrace(name, master_trace, ep);
+  journal_trace = ZTracer::create_ZTrace(name, pg_trace, ep);
   return true;
 }
 

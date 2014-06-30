@@ -340,6 +340,7 @@ protected:
   // currently throttled.
   uint64_t dispatch_throttle_size;
 
+  struct blkin_trace_info master_trace_info;
   ZTracer::ZTraceRef master_trace;
   ZTracer::ZTraceRef messenger_trace;
 
@@ -353,6 +354,9 @@ public:
       dispatch_throttle_size(0) {
     memset(&header, 0, sizeof(header));
     memset(&footer, 0, sizeof(footer));
+    master_trace_info.trace_id= 0;
+    master_trace_info.span_id = 0;
+    master_trace_info.parent_span_id = 0;
   };
   Message(int t, int version=1, int compat_version=0)
     : connection(NULL),
@@ -366,6 +370,9 @@ public:
     header.priority = 0;  // undef
     header.data_off = 0;
     memset(&footer, 0, sizeof(footer));
+    master_trace_info.trace_id= 0;
+    master_trace_info.span_id = 0;
+    master_trace_info.parent_span_id = 0;
   }
 
   Message *get() {
@@ -397,8 +404,8 @@ public:
   void set_header(const ceph_msg_header &e) { header = e; }
   void set_footer(const ceph_msg_footer &e) { footer = e; }
   ceph_msg_footer &get_footer() { return footer; }
-  ZTracer::ZTraceRef get_trace() { return master_trace; }
-  void set_trace(ZTracer::ZTraceRef t) { master_trace= t; }
+  struct blkin_trace_info *get_trace_info() { return &master_trace_info; }
+  void set_trace_info(struct blkin_trace_info *info) { master_trace_info = *info; }
   ZTracer::ZTraceRef get_messenger_trace() { return messenger_trace; }
   void set_messenger_trace(ZTracer::ZTraceRef t) { messenger_trace = t; }
 
@@ -532,6 +539,11 @@ public:
   virtual void dump(Formatter *f) const;
 
   void encode(uint64_t features, bool datacrc);
+
+  int init_trace_info();
+  int init_trace_info(struct blkin_trace_info *tinfo);
+  bool create_messenger_trace(ZTracer::ZTraceEndpointRef ep);
+  void trace_msgr(string event);
 };
 typedef boost::intrusive_ptr<Message> MessageRef;
 
@@ -547,5 +559,6 @@ inline ostream& operator<<(ostream& out, Message& m) {
 
 extern void encode_message(Message *m, uint64_t features, bufferlist& bl);
 extern Message *decode_message(CephContext *cct, bufferlist::iterator& bl);
+
 
 #endif

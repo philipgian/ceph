@@ -189,6 +189,7 @@ public:
   void trace_osd(string event);
   bool create_pg_trace(TrackedOpEndpoint ep);
   void trace_pg(string event);
+  void get_pg_trace_info(struct blkin_trace_info *info);
   bool create_journal_trace(TrackedOpEndpoint ep);
   void trace_journal(string event);
 };

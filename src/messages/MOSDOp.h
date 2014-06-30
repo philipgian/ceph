@@ -102,7 +102,7 @@ public:
     set_tid(tid);
   }
 private:
-  ~MOSDOp() {}
+  ~MOSDOp() { }
 
 public:
   void set_version(eversion_t v) { reassert_version = v; }
@@ -176,7 +176,7 @@ public:
 
   // marshalling
   virtual void encode_payload(uint64_t features) {
-    ZTracer::ZTraceRef mt = get_trace(); //master_trace
+    struct blkin_trace_info *tinfo = get_trace_info(); //master_trace_info
 
     OSDOp::merge_osd_op_vector_in_data(ops, data);
 
@@ -254,24 +254,18 @@ struct ceph_osd_request_head {
       ::encode(retry_attempt, payload);
 
 
-      if (mt) {
-	      struct blkin_trace_info info;
-	      mt->get_trace_info(&info);
-	      ::encode(info.trace_id, payload);
-	      ::encode(info.span_id, payload);
-	      ::encode(info.parent_span_id, payload);
-      } else {
-	      int64_t zero = 0;
-	      ::encode(zero, payload);
-	      ::encode(zero, payload);
-	      ::encode(zero, payload);
-      }
+      ::encode(tinfo->trace_id, payload);
+      ::encode(tinfo->span_id, payload);
+      ::encode(tinfo->parent_span_id, payload);
     }
   }
 
   virtual void decode_payload() {
     bufferlist::iterator p = payload.begin();
     struct blkin_trace_info tinfo;
+    tinfo.trace_id = 0;
+    tinfo.span_id = 0;
+    tinfo.parent_span_id = 0;
 
     if (header.version < 2) {
       // old decode
@@ -350,35 +344,14 @@ struct ceph_osd_request_head {
 	retry_attempt = -1;
 
       if (header.version >= 5) {
-	      ::decode(tinfo.trace_id, p);
-	      ::decode(tinfo.span_id, p);
-	      ::decode(tinfo.parent_span_id, p);
-      } else {
-	tinfo.trace_id = 0;
-	tinfo.span_id = 0;
-	tinfo.parent_span_id = 0;
+        ::decode(tinfo.trace_id, p);
+        ::decode(tinfo.span_id, p);
+        ::decode(tinfo.parent_span_id, p);
       }
     }
 
-
-
-    ostringstream oss;
-    oss << get_reqid();
-    string name = oss.str();
-
-    //FIXME get a better endpoint
-    ZTracer::ZTraceRef mt, msgr_trace;
-    TrackedOpEndpoint ep = ZTracer::create_ZTraceEndpoint("", 0, "MOSDOp");
-
-    if (!tinfo.trace_id && !tinfo.span_id && !tinfo.parent_span_id)
-	    mt = ZTracer::create_ZTrace(name, ep);
-    else
-	    mt = ZTracer::create_ZTrace(name, ep, &tinfo);
-
-    set_trace(mt);
-
-    msgr_trace = ZTracer::create_ZTrace("Messenger", mt);
-    set_messenger_trace(msgr_trace);
+    //Initialize trace info
+    init_trace_info(&tinfo);
 
     OSDOp::split_osd_op_vector_in_data(ops, data);
   }

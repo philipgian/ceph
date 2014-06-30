@@ -7393,6 +7393,7 @@ void OSD::handle_op(OpRequestRef op)
   }
 
   op->trace_osd("Handling op");
+  op->trace_osd("Span ended");
 
   // we don't need encoded payload anymore
   m->clear_payload();
@@ -7566,8 +7567,10 @@ void OSD::handle_replica_op(OpRequestRef op)
   if (!pg) {
     return;
   }
+  op->create_pg_trace(pg->get_trace_endpoint());
   enqueue_op(pg, op);
   op->trace_osd("Enqueued replica op");
+  op->trace_osd("Span ended");
 }
 
 bool OSD::op_is_discardable(MOSDOp *op)

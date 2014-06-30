@@ -1472,10 +1472,6 @@ void Pipe::reader()
       Message *m = 0;
       int r = read_message(&m, auth_handler.get());
 
-      ZTracer::ZTraceRef messenger_trace = m->get_messenger_trace();
-      if (messenger_trace)
-	      messenger_trace->event("Message read");
-
       pipe_lock.Lock();
       
       if (!m) {
@@ -1483,6 +1479,9 @@ void Pipe::reader()
 	  fault(true);
 	continue;
       }
+      ZTracer::ZTraceEndpointRef ep = ZTracer::create_ZTraceEndpoint("0.0.0.0", 0, "Messenger");
+      m->create_messenger_trace(ep);
+      m->trace_msgr("Message read");
 
       if (state == STATE_CLOSED ||
 	  state == STATE_CONNECTING) {
@@ -1530,8 +1529,8 @@ void Pipe::reader()
       } else {
 	in_q->enqueue(m, m->get_priority(), conn_id);
       }
-      if (messenger_trace)
-	      messenger_trace->event("Messenger end");
+      m->trace_msgr("Messenger end");
+      m->trace_msgr("Span ended");
     }
 
     else if (tag == CEPH_MSGR_TAG_CLOSE) {

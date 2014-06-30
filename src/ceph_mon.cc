@@ -12,6 +12,7 @@
  * 
  */
 
+#include <ztracer.hpp>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -417,6 +418,7 @@ int main(int argc, const char **argv)
     common_init_finish(g_ceph_context);
     global_init_chdir(g_ceph_context);
   }
+  ZTracer::ztrace_init();
 
   MonitorDBStore *store = new MonitorDBStore(g_conf->mon_data);
 

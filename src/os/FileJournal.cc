@@ -840,6 +840,7 @@ void FileJournal::queue_completions_thru(uint64_t seq)
     if (next.tracked_op) {
       next.tracked_op->mark_event("journaled_completion_queued");
       next.tracked_op->trace_journal("Journaled completion queued");
+      next.tracked_op->trace_journal("Span ended");
     }
   }
   finisher_cond.Signal();
