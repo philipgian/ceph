@@ -240,19 +240,19 @@ void OpTracker::_mark_event(TrackedOp *op, const string &evt,
 	  << ", request: " << *op->request << dendl;
 }
 
-void OpTracker::trace_event(TrackedOp *op, TrackedOpTrace t, const string &evt)
+void OpTracker::trace_event(TrackedOp *op, TrackedOpTrace t, const string &evt, TrackedOpEndpoint ep)
 {
   //if (!tracking_enabled)
   //  return;
-  t->event(evt);
+  t->event(evt, ep);
 }
 
 void OpTracker::trace_keyval(TrackedOp *op, TrackedOpTrace t, const string &key,
-			     const string &val)
+			     const string &val, TrackedOpEndpoint ep)
 {
   //if (!tracking_enabled)
   //  return;
-  t->keyval(key, val);
+  t->keyval(key, val, ep);
 }
 
 void OpTracker::RemoveOnDelete::operator()(TrackedOp *op) {
@@ -262,6 +262,7 @@ void OpTracker::RemoveOnDelete::operator()(TrackedOp *op) {
     return;
   }
   op->mark_event("done");
+  op->trace_osd("Span ended");
   tracker->unregister_inflight_op(op);
   // Do not delete op, unregister_inflight_op took control
 }
@@ -295,18 +296,15 @@ void TrackedOp::dump(utime_t now, Formatter *f) const
 
 bool TrackedOp::create_osd_trace(TrackedOpEndpoint ep)
 {
-  string name = "OSD";
+  string name = "OSD Handling op";
   if (!request)
     return false;
 
-  struct blkin_trace_info *tinfo = request->get_trace_info();
-  if (!tinfo)
+  TrackedOpTrace mt = request->get_master_trace();
+  if (!mt)
     return false;
 
-  if (tinfo->trace_id == 0 && tinfo->span_id == 0 && tinfo->parent_span_id == 0)
-    return false;
-
-  osd_trace = ZTracer::create_ZTrace(name, ep, tinfo);
+  osd_trace = ZTracer::create_ZTrace(name, mt, ep);
   return true;
 }
 
@@ -314,8 +312,16 @@ void TrackedOp::trace_osd(string event)
 {
   if (!osd_trace)
     return;
-  tracker->trace_event(this, osd_trace, event);
+  tracker->trace_event(this, osd_trace, event, osd_trace->get_endpoint());
 }
+
+void TrackedOp::trace_osd(string key, string val)
+{
+  if (!osd_trace)
+    return;
+  tracker->trace_keyval(this, osd_trace, key, val, osd_trace->get_endpoint());
+}
+
 
 bool TrackedOp::create_pg_trace(TrackedOpEndpoint ep)
 {
@@ -323,14 +329,11 @@ bool TrackedOp::create_pg_trace(TrackedOpEndpoint ep)
   if (!request)
     return false;
 
-  struct blkin_trace_info *tinfo = request->get_trace_info();
-  if (!tinfo)
+  TrackedOpTrace mt = request->get_master_trace();
+  if (!mt)
     return false;
 
-  if (tinfo->trace_id == 0 && tinfo->span_id == 0 && tinfo->parent_span_id == 0)
-    return false;
-
-  pg_trace = ZTracer::create_ZTrace(name, ep, tinfo);
+  pg_trace = ZTracer::create_ZTrace(name, mt, ep);
   return true;
 }
 
@@ -338,26 +341,24 @@ void TrackedOp::trace_pg(string event)
 {
   if (!pg_trace)
     return;
-  tracker->trace_event(this, pg_trace, event);
+  tracker->trace_event(this, osd_trace, event, pg_trace->get_endpoint());
 }
 
 void TrackedOp::get_pg_trace_info(struct blkin_trace_info *info)
 {
   if (!pg_trace)
     return;
-  pg_trace->get_trace_info(info);
+  osd_trace->get_trace_info(info);
 }
 
 bool TrackedOp::create_journal_trace(TrackedOpEndpoint ep)
 {
-  string name = "JOURNAL";
-  if (!request)
+  string name = "Journal access";
+
+  if (!osd_trace)
     return false;
 
-  if (!pg_trace)
-    return false;
-
-  journal_trace = ZTracer::create_ZTrace(name, pg_trace, ep);
+  journal_trace = ZTracer::create_ZTrace(name, osd_trace, ep);
   return true;
 }
 
@@ -365,5 +366,23 @@ void TrackedOp::trace_journal(string event)
 {
   if (!journal_trace)
     return;
-  tracker->trace_event(this, journal_trace, event);
+  tracker->trace_event(this, journal_trace, event, journal_trace->get_endpoint());
+}
+
+bool TrackedOp::create_filestore_trace(TrackedOpEndpoint ep)
+{
+  string name = "Filestore access";
+
+  if (!osd_trace)
+    return false;
+
+  filestore_trace = ZTracer::create_ZTrace(name, osd_trace, ep);
+  return true;
+}
+
+void TrackedOp::trace_filestore(string event)
+{
+  if (!filestore_trace)
+    return;
+  tracker->trace_event(this, filestore_trace, event, filestore_trace->get_endpoint());
 }

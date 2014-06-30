@@ -106,26 +106,7 @@ Pipe::Pipe(SimpleMessenger *r, int st, Connection *con)
   msgr->timeout = msgr->cct->_conf->ms_tcp_read_timeout * 1000; //convert to ms
   if (msgr->timeout == 0)
     msgr->timeout = -1;
-  string type;
-  if (connection_state->peer_is_mon()) {
-    type = "MON";
-  } else if (connection_state->peer_is_mds()) {
-    type = "MDS";
-  } else if (connection_state->peer_is_osd()) {
-    type = "OSD";
-  } else if (connection_state->peer_is_client()) {
-    type = "CLIENT";
-  } else {
-    type = "UNKNOWconst entity_addr_t& get_peer_addr() { return peer_addr; }
-  }
-
-  string host;
-  int port;
-
-  entity_addr_t addr =  connection_state->get_peer_addr();
-  addr.to_string(host, port);
-
-  pipe_endpoint = ZTracer::create_ZTraceEndpoint(host, port, "Messenger-" + type);
+  set_endpoint();
 }
 
 Pipe::~Pipe()
@@ -133,6 +114,31 @@ Pipe::~Pipe()
   assert(out_q.empty());
   assert(sent.empty());
   delete delay_thread;
+}
+
+void Pipe::set_endpoint()
+{
+  string type;
+  entity_inst_t inst = msgr->get_myinst();
+
+  if (inst.name.is_client()) {
+    type = "MON";
+  } else if (inst.name.is_mds()) {
+    type = "MDS";
+  } else if (inst.name.is_osd()) {
+    type = "OSD";
+  } else if (inst.name.is_client()) {
+    type = "CLIENT";
+  } else {
+    type = "UNKNOWN";
+  }
+
+  string host;
+  int port;
+
+  inst.addr.to_string(host, port);
+
+  pipe_endpoint = ZTracer::create_ZTraceEndpoint(host, port, "Messenger-" + type);
 }
 
 void Pipe::handle_ack(uint64_t seq)
@@ -1499,9 +1505,8 @@ void Pipe::reader()
 	  fault(true);
 	continue;
       }
-      m->create_messenger_trace(pipe_endpoint);
-      m->trace_msgr("Message read");
-      m->trace_msg_info();
+      //m->create_messenger_trace(pipe_endpoint);
+      m->trace("Message read");
 
       if (state == STATE_CLOSED ||
 	  state == STATE_CONNECTING) {
@@ -1549,8 +1554,7 @@ void Pipe::reader()
       } else {
 	in_q->enqueue(m, m->get_priority(), conn_id);
       }
-      m->trace_msgr("Messenger end");
-      m->trace_msgr("Span ended");
+      m->trace("Messenger end");
     }
 
     else if (tag == CEPH_MSGR_TAG_CLOSE) {
@@ -1720,6 +1724,9 @@ void Pipe::writer()
 
 	pipe_lock.Unlock();
 
+	m->trace("Writer sending");
+        if (m->trace_end_after_span)
+	  m->trace("Span ended");
         ldout(msgr->cct,20) << "writer sending " << m->get_seq() << " " << m << dendl;
 	int rc = write_message(header, footer, blist);
 

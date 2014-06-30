@@ -383,7 +383,7 @@ private:
     write_thread(this),
     write_finish_thread(this)
     { 
-      journal_endpoint = ZTracer::create_ZTraceEndpoint("", 0, "Journal");
+      journal_endpoint = ZTracer::create_ZTraceEndpoint("", 0, "Journal (" + fn + ")");
     }
   ~FileJournal() {
     delete[] zero_buf;

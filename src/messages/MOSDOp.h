@@ -176,7 +176,7 @@ public:
 
   // marshalling
   virtual void encode_payload(uint64_t features) {
-    struct blkin_trace_info *tinfo = get_trace_info(); //master_trace_info
+    ZTracer::ZTraceRef mt = get_master_trace();
 
     OSDOp::merge_osd_op_vector_in_data(ops, data);
 
@@ -254,9 +254,18 @@ struct ceph_osd_request_head {
       ::encode(retry_attempt, payload);
 
 
-      ::encode(tinfo->trace_id, payload);
-      ::encode(tinfo->span_id, payload);
-      ::encode(tinfo->parent_span_id, payload);
+      if (mt) {
+	struct blkin_trace_info tinfo;
+	mt->get_trace_info(&tinfo); //master_trace_info
+	::encode(tinfo.trace_id, payload);
+	::encode(tinfo.span_id, payload);
+	::encode(tinfo.parent_span_id, payload);
+      } else {
+	int64_t zero = 0;
+	::encode(zero, payload);
+	::encode(zero, payload);
+	::encode(zero, payload);
+      }
     }
   }
 
@@ -394,13 +403,25 @@ struct ceph_osd_request_head {
     out << ")";
   }
 
-  virtual void trace_msg_info()
+  void trace_msg_info()
   {
+    if (!master_trace)
+      return;
+
     ostringstream oss;
     oss << get_reqid();
 
-    trace_msgr("Type", "MOSDOp");
-    trace_msgr("Reqid", oss.str());
+    master_trace->keyval("Type", "MOSDOp");
+    master_trace->keyval("Reqid", oss.str());
+  }
+
+  bool create_message_endpoint()
+  {
+    message_endpoint = ZTracer::create_ZTraceEndpoint("0.0.0.0", 0, "MOSDOp");
+    if (!message_endpoint)
+      return false;
+
+    return true;
   }
 };
 

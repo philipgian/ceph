@@ -648,12 +648,14 @@ void ReplicatedBackend::sub_op_modify_reply(OpRequestRef op)
       if (ip_op.op) {
 	ip_op.op->mark_event("sub_op_commit_rec");
 	ip_op.op->trace_pg("Sub op commit received");
+	op->get_req()->trace("Span ended");
       }
     } else {
       assert(ip_op.waiting_for_applied.count(from));
       if (ip_op.op) {
 	ip_op.op->mark_event("sub_op_applied_rec");
 	ip_op.op->trace_pg("Sub op applied received");
+	op->get_req()->trace("Span ended");
       }
     }
     ip_op.waiting_for_applied.erase(from);

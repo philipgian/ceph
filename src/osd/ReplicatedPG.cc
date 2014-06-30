@@ -1202,7 +1202,7 @@ void ReplicatedPG::do_op(OpRequestRef op)
     }
     return do_pg_op(op);
   }
-
+  op->trace_osd("Object", m->get_oid().name);
   if (get_osdmap()->is_blacklisted(m->get_source_addr())) {
     dout(10) << "do_op " << m->get_source_addr() << " is blacklisted" << dendl;
     osd->reply_op_error(op, -EBLACKLISTED);
@@ -1281,6 +1281,7 @@ void ReplicatedPG::do_op(OpRequestRef op)
 	if (m->wants_ack()) {
 	  if (already_ack(oldv)) {
 	    MOSDOpReply *reply = new MOSDOpReply(m, 0, get_osdmap()->get_epoch(), 0, false);
+            reply->init_trace_info(op->get_osd_trace());
 	    reply->add_flags(CEPH_OSD_FLAG_ACK);
 	    reply->set_reply_versions(oldv, entry->user_version);
 	    osd->send_message_osd_client(reply, m->get_connection());
@@ -1809,6 +1810,7 @@ void ReplicatedPG::execute_ctx(OpContext *ctx)
   // prepare the reply
   ctx->reply = new MOSDOpReply(m, 0, get_osdmap()->get_epoch(), 0,
 			       successful_write);
+  ctx->reply->init_trace_info(op->get_osd_trace());
 
   // Write operations aren't allowed to return a data payload because
   // we can't do so reliably. If the client has to resend the request
@@ -2940,6 +2942,7 @@ int ReplicatedPG::do_osd_ops(OpContext *ctx, vector<OSDOp>& ops)
   ObjectState& obs = ctx->new_obs;
   object_info_t& oi = obs.oi;
   const hobject_t& soid = oi.soid;
+  ostringstream oss;
 
   bool first_read = true;
 
@@ -3016,6 +3019,13 @@ int ReplicatedPG::do_osd_ops(OpContext *ctx, vector<OSDOp>& ops)
       // fall through
     case CEPH_OSD_OP_READ:
       ++ctx->num_read;
+      ctx->op->trace_osd("Type", "Read");
+      oss << op.extent.offset;
+      ctx->op->trace_osd("Offset", oss.str());
+      oss.str("");
+      oss.clear();
+      oss << op.extent.length;
+      ctx->op->trace_osd("Length", oss.str());
       {
 	__u32 seq = oi.truncate_seq;
 	uint64_t size = oi.size;
@@ -6590,12 +6600,15 @@ void ReplicatedPG::eval_repop(RepGather *repop)
 	  repop->ctx->reply = NULL;
 	else {
 	  reply = new MOSDOpReply(m, 0, get_osdmap()->get_epoch(), 0, true);
+	  reply->init_trace_info(repop->ctx->op->get_osd_trace());
 	  reply->set_reply_versions(repop->ctx->at_version,
 	                            repop->ctx->user_at_version);
 	}
 	reply->add_flags(CEPH_OSD_FLAG_ACK | CEPH_OSD_FLAG_ONDISK);
 	dout(10) << " sending commit on " << *repop << " " << reply << dendl;
 	osd->send_message_osd_client(reply, m->get_connection());
+        m->trace("Replied");
+        m->trace("Span ended");
 	repop->sent_disk = true;
 	repop->ctx->op->mark_commit_sent();
       }
@@ -6612,6 +6625,7 @@ void ReplicatedPG::eval_repop(RepGather *repop)
 	     ++i) {
 	  MOSDOp *m = (MOSDOp*)(*i)->get_req();
 	  MOSDOpReply *reply = new MOSDOpReply(m, 0, get_osdmap()->get_epoch(), 0, true);
+	  reply->init_trace_info(repop->ctx->op->get_osd_trace());
 	  reply->set_reply_versions(repop->ctx->at_version,
 	                            repop->ctx->user_at_version);
 	  reply->add_flags(CEPH_OSD_FLAG_ACK);
@@ -6668,7 +6682,6 @@ void ReplicatedPG::eval_repop(RepGather *repop)
       assert(repop_queue.front() == repop);
     }
     repop->ctx->op->trace_pg("All done");
-    repop->ctx->op->trace_pg("Span ended");
     repop_queue.pop_front();
     remove_repop(repop);
   }
@@ -6790,9 +6803,7 @@ void ReplicatedBackend::issue_op(
       get_osdmap()->get_epoch(),
       tid, at_version);
     if (op->op->get_req()) {
-        struct blkin_trace_info tinfo;
-        op->op->get_pg_trace_info(&tinfo);
-        wr->set_trace_info(&tinfo);
+        wr->init_trace_info(op->op->get_osd_trace());
     }
 
     // ship resulting transaction, log entries, and pg_stats
@@ -7660,6 +7671,9 @@ void ReplicatedBackend::sub_op_modify_applied(RepModifyRef rm)
       m, parent->whoami_shard(),
       0, get_osdmap()->get_epoch(), CEPH_OSD_FLAG_ACK);
     ack->set_priority(CEPH_MSG_PRIO_HIGH); // this better match commit priority!
+    ack->init_trace_info(rm->op->get_osd_trace());
+    rm->op->get_req()->trace("Replied apply");
+    rm->op->get_req()->trace("Span ended");
     get_parent()->send_message_osd_cluster(
       rm->ackerosd, ack, get_osdmap()->get_epoch());
   }
@@ -7685,6 +7699,9 @@ void ReplicatedBackend::sub_op_modify_commit(RepModifyRef rm)
     0, get_osdmap()->get_epoch(), CEPH_OSD_FLAG_ONDISK);
   commit->set_last_complete_ondisk(rm->last_complete);
   commit->set_priority(CEPH_MSG_PRIO_HIGH); // this better match ack priority!
+  commit->init_trace_info(rm->op->get_osd_trace());
+  rm->op->get_req()->trace("Replied commit");
+  rm->op->get_req()->trace("Span ended");
   get_parent()->send_message_osd_cluster(
     rm->ackerosd, commit, get_osdmap()->get_epoch());
   

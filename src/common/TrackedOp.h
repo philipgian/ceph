@@ -101,9 +101,9 @@ public:
   void mark_event(TrackedOp *op, const string &evt);
   void _mark_event(TrackedOp *op, const string &evt, utime_t now);
 
-  void trace_event(TrackedOp *op, TrackedOpTrace t, const string &evt);
+  void trace_event(TrackedOp *op, TrackedOpTrace t, const string &evt, TrackedOpEndpoint ep);
   void trace_keyval(TrackedOp *op, TrackedOpTrace t, const string &key,
-		    const string &val);
+		    const string &val, TrackedOpEndpoint ep);
   void on_shutdown() {
     Mutex::Locker l(ops_in_flight_lock);
     history.on_shutdown();
@@ -137,6 +137,7 @@ private:
   TrackedOpTrace osd_trace;
   TrackedOpTrace pg_trace;
   TrackedOpTrace journal_trace;
+  TrackedOpTrace filestore_trace;
 protected:
   Message *request; /// the logical request we are tracking
   OpTracker *tracker; /// the tracker we are associated with
@@ -187,11 +188,15 @@ public:
 
   bool create_osd_trace(TrackedOpEndpoint ep);
   void trace_osd(string event);
+  void trace_osd(string key, string val);
   bool create_pg_trace(TrackedOpEndpoint ep);
   void trace_pg(string event);
   void get_pg_trace_info(struct blkin_trace_info *info);
   bool create_journal_trace(TrackedOpEndpoint ep);
   void trace_journal(string event);
+  bool create_filestore_trace(TrackedOpEndpoint ep);
+  void trace_filestore(string event);
+  TrackedOpTrace get_osd_trace() { return osd_trace; };
 };
 
 #endif

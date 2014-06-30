@@ -193,7 +193,7 @@ public:
     ::encode(reqid, payload);
     ::encode(pgid.pgid, payload);
     ::encode(poid, payload);
-    struct blkin_trace_info *tinfo = get_trace_info();
+    ZTracer::ZTraceRef mt = get_master_trace();
 
     __u32 num_ops = ops.size();
     ::encode(num_ops, payload);
@@ -237,9 +237,18 @@ public:
     ::encode(pgid.shard, payload);
     ::encode(updated_hit_set_history, payload);
 
-    ::encode(tinfo->trace_id, payload);
-    ::encode(tinfo->span_id, payload);
-    ::encode(tinfo->parent_span_id, payload);
+    if (mt) {
+      struct blkin_trace_info tinfo;
+      mt->get_trace_info(&tinfo);
+      ::encode(tinfo.trace_id, payload);
+      ::encode(tinfo.span_id, payload);
+      ::encode(tinfo.parent_span_id, payload);
+    } else {
+      int64_t zero = 0;
+      ::encode(zero, payload);
+      ::encode(zero, payload);
+      ::encode(zero, payload);
+    }
   }
 
   MOSDSubOp()
@@ -284,6 +293,15 @@ public:
     if (updated_hit_set_history)
       out << ", has_updated_hit_set_history";
     out << ")";
+  }
+
+  bool create_message_endpoint()
+  {
+    message_endpoint = ZTracer::create_ZTraceEndpoint("0.0.0.0", 0, "MOSDSubOp");
+    if (!message_endpoint)
+      return false;
+
+    return true;
   }
 };
 

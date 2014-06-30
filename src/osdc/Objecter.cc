@@ -1651,9 +1651,7 @@ void Objecter::send_op(Op *op)
   m->set_mtime(op->mtime);
   m->set_retry_attempt(op->attempts++);
   if (op->trace) {
-    struct blkin_trace_info tinfo;
-    op->trace->get_trace_info(&tinfo);
-    m->set_trace_info(&tinfo);
+    m->init_trace_info(op->trace);
   }
 
   if (op->replay_version != eversion_t())

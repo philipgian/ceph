@@ -127,7 +127,7 @@ public:
     : Message(CEPH_MSG_OSD_OPREPLY, HEAD_VERSION, COMPAT_VERSION) { }
   MOSDOpReply(MOSDOp *req, int r, epoch_t e, int acktype, bool ignore_out_data)
     : Message(CEPH_MSG_OSD_OPREPLY, HEAD_VERSION, COMPAT_VERSION) {
-    set_trace_info(req->get_trace_info());
+    //init_trace_info(req->get_master_trace());
     set_tid(req->get_tid());
     ops = req->ops;
     result = r;
@@ -145,13 +145,21 @@ public:
       if (ignore_out_data)
 	ops[i].outdata.clear();
     }
+    struct blkin_trace_info tinfo;
+    ZTracer::ZTraceRef mt = req->get_master_trace();
+    if (!mt)
+      return;
+    mt->get_trace_info(&tinfo);
+    if (!tinfo.parent_span_id) {
+	    trace_end_after_span = false;
+    }
   }
 private:
   ~MOSDOpReply() {}
 
 public:
   virtual void encode_payload(uint64_t features) {
-    struct blkin_trace_info *tinfo = get_trace_info();
+    ZTracer::ZTraceRef mt = get_master_trace();
     OSDOp::merge_osd_op_vector_out_data(ops, data);
 
     if ((features & CEPH_FEATURE_PGID64) == 0) {
@@ -192,9 +200,18 @@ public:
       ::encode(user_version, payload);
       ::encode(redirect, payload);
   
-      ::encode(tinfo->trace_id, payload);
-      ::encode(tinfo->span_id, payload);
-      ::encode(tinfo->parent_span_id, payload);
+      if (mt) {
+	struct blkin_trace_info tinfo;
+	mt->get_trace_info(&tinfo); //master_trace_info
+	::encode(tinfo.trace_id, payload);
+	::encode(tinfo.span_id, payload);
+	::encode(tinfo.parent_span_id, payload);
+      } else {
+	int64_t zero = 0;
+	::encode(zero, payload);
+	::encode(zero, payload);
+	::encode(zero, payload);
+      }
     }
 
   }
@@ -286,6 +303,15 @@ public:
       out << " redirect: { " << redirect << " }";
     }
     out << ")";
+  }
+
+  bool create_message_endpoint()
+  {
+    message_endpoint = ZTracer::create_ZTraceEndpoint("0.0.0.0", 0, "MOSDOpReply");
+    if (!message_endpoint)
+      return false;
+
+    return true;
   }
 
 };

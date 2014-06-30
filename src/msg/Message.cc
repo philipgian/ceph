@@ -785,17 +785,36 @@ Message *decode_message(CephContext *cct, bufferlist::iterator& p)
   return decode_message(cct, h, f, fr, mi, da);
 }
 
+int Message::trace_basic_info()
+{
+  if (!master_trace)
+    return 0;
+
+  master_trace->event("Message allocated");
+  trace_msg_info();
+  return 0;
+}
+
 int Message::init_trace_info()
 {
-  ZTracer::ZTraceEndpointRef ep = ZTracer::create_ZTraceEndpoint("0.0.0.0", 0, "NaN");
-  ZTracer::ZTraceRef t = ZTracer::create_ZTrace("NaN", ep);
-  master_trace = t;
-  struct blkin_trace_info info;
-  t->get_trace_info(&info);
-  set_trace_info(&info);
-  t->event("New request");
-  t->event("Span ended");
-  return 0;
+  create_message_endpoint();
+  master_trace = ZTracer::create_ZTrace("Main", message_endpoint);
+  if (!master_trace)
+    return -ENOMEM;
+  return trace_basic_info();
+}
+
+int Message::init_trace_info(ZTracer::ZTraceRef t)
+{
+  if (!t)
+    return -EINVAL;
+
+  create_message_endpoint();
+  master_trace = ZTracer::create_ZTrace("Main", t, message_endpoint);
+  if (!master_trace)
+    return -ENOMEM;
+
+  return trace_basic_info();
 }
 
 int Message::init_trace_info(struct blkin_trace_info *tinfo)
@@ -807,52 +826,54 @@ int Message::init_trace_info(struct blkin_trace_info *tinfo)
       << "parent_span_id: " << tinfo->parent_span_id;
 
   if (!(tinfo->trace_id == 0 && tinfo->span_id == 0 && tinfo->parent_span_id == 0)) {
-	  oss << " OK" << std::endl;
-	  write(3, oss.str().c_str(), oss.str().length());
-    set_trace_info(tinfo);
-    return 0;
+    oss << " OK" << std::endl;
+    write(3, oss.str().c_str(), oss.str().length());
+    create_message_endpoint();
+    master_trace = ZTracer::create_ZTrace("Main", message_endpoint, tinfo);
+    return trace_basic_info();
   }
   oss << " ZEROS" << std::endl;
   write(3, oss.str().c_str(), oss.str().length());
   return init_trace_info();
 }
 
+/*
 bool Message::create_messenger_trace(ZTracer::ZTraceEndpointRef ep)
 {
-  struct blkin_trace_info *tinfo = get_trace_info();
-  ostringstream oss;
-  oss << "CREATE TRACE TINFO: "
-      << "trace_id: " << tinfo->trace_id
-      << "span_id: " << tinfo->span_id
-      << "parent_span_id: " << tinfo->parent_span_id;
-
-  if (tinfo->trace_id == 0 && tinfo->span_id == 0 && tinfo->parent_span_id == 0) {
-	  oss << " ZEROS" << std::endl;
-	  write(3, oss.str().c_str(), oss.str().length());
+  ZTracer::ZTraceRef mt = get_master_trace();
+  if (!mt) {
     return false;
   }
-  oss << " creating" << std::endl;
-  write(3, oss.str().c_str(), oss.str().length());
 
-  messenger_trace = ZTracer::create_ZTrace("Messenger", ep, tinfo);
+  messenger_trace = ZTracer::create_ZTrace("Messenger", mt, ep);
   if (!messenger_trace) {
     return false;
   }
   return true;
 }
+*/
 
-void Message::trace_msgr(string event)
+void Message::trace(string event)
 {
-  if (!messenger_trace) {
+  if (!master_trace) {
     return;
   }
-  messenger_trace->event(event);
+  master_trace->event(event);
 }
 
-void Message::trace_msgr(string key, string val)
+void Message::trace(string key, string val)
 {
-  if (!messenger_trace) {
+  if (!master_trace) {
     return;
   }
-  messenger_trace->keyval(key, val);
+  master_trace->keyval(key, val);
+}
+
+bool Message::create_message_endpoint()
+{
+  message_endpoint = ZTracer::create_ZTraceEndpoint("0.0.0.0", 0, "NaN");
+  if (!message_endpoint)
+    return false;
+
+  return true;
 }

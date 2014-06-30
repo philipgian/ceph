@@ -340,10 +340,9 @@ protected:
   // currently throttled.
   uint64_t dispatch_throttle_size;
 
-  struct blkin_trace_info master_trace_info;
+  ZTracer::ZTraceEndpointRef message_endpoint;
   ZTracer::ZTraceRef master_trace;
   ZTracer::ZTraceRef messenger_trace;
-
   friend class Messenger;
 
 public:
@@ -354,9 +353,7 @@ public:
       dispatch_throttle_size(0) {
     memset(&header, 0, sizeof(header));
     memset(&footer, 0, sizeof(footer));
-    master_trace_info.trace_id= 0;
-    master_trace_info.span_id = 0;
-    master_trace_info.parent_span_id = 0;
+    trace_end_after_span = false;
   };
   Message(int t, int version=1, int compat_version=0)
     : connection(NULL),
@@ -370,11 +367,10 @@ public:
     header.priority = 0;  // undef
     header.data_off = 0;
     memset(&footer, 0, sizeof(footer));
-    master_trace_info.trace_id= 0;
-    master_trace_info.span_id = 0;
-    master_trace_info.parent_span_id = 0;
+    trace_end_after_span = false;
   }
 
+  bool trace_end_after_span;
   Message *get() {
     return static_cast<Message *>(RefCountedObject::get());
   }
@@ -404,8 +400,7 @@ public:
   void set_header(const ceph_msg_header &e) { header = e; }
   void set_footer(const ceph_msg_footer &e) { footer = e; }
   ceph_msg_footer &get_footer() { return footer; }
-  struct blkin_trace_info *get_trace_info() { return &master_trace_info; }
-  void set_trace_info(struct blkin_trace_info *info) { master_trace_info = *info; }
+  ZTracer::ZTraceRef get_master_trace() { return master_trace; }
   ZTracer::ZTraceRef get_messenger_trace() { return messenger_trace; }
   void set_messenger_trace(ZTracer::ZTraceRef t) { messenger_trace = t; }
 
@@ -542,10 +537,13 @@ public:
 
   int init_trace_info();
   int init_trace_info(struct blkin_trace_info *tinfo);
-  bool create_messenger_trace(ZTracer::ZTraceEndpointRef ep);
-  void trace_msgr(string event);
-  void trace_msgr(string key, string val);
+  int init_trace_info(ZTracer::ZTraceRef t);
+  //bool create_messenger_trace(ZTracer::ZTraceEndpointRef ep);
+  void trace(string event);
+  void trace(string key, string val);
+  int trace_basic_info();
   virtual void trace_msg_info() { };
+  virtual bool create_message_endpoint();
 };
 typedef boost::intrusive_ptr<Message> MessageRef;
 

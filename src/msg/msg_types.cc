@@ -150,7 +150,7 @@ int ss_to_string(const sockaddr_storage &ss, string &host, int &port)
   return 0;
 }
 
-int entity_addr_t::to_string(entity_addr_t addr, string &host, int &port)
+int entity_addr_t::to_string(string &host, int &port)
 {
   return ss_to_string(addr, host, port);
 }
