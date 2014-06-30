@@ -848,3 +848,11 @@ void Message::trace_msgr(string event)
   }
   messenger_trace->event(event);
 }
+
+void Message::trace_msgr(string key, string val)
+{
+  if (!messenger_trace) {
+    return;
+  }
+  messenger_trace->keyval(key, val);
+}

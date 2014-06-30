@@ -106,6 +106,26 @@ Pipe::Pipe(SimpleMessenger *r, int st, Connection *con)
   msgr->timeout = msgr->cct->_conf->ms_tcp_read_timeout * 1000; //convert to ms
   if (msgr->timeout == 0)
     msgr->timeout = -1;
+  string type;
+  if (connection_state->peer_is_mon()) {
+    type = "MON";
+  } else if (connection_state->peer_is_mds()) {
+    type = "MDS";
+  } else if (connection_state->peer_is_osd()) {
+    type = "OSD";
+  } else if (connection_state->peer_is_client()) {
+    type = "CLIENT";
+  } else {
+    type = "UNKNOWconst entity_addr_t& get_peer_addr() { return peer_addr; }
+  }
+
+  string host;
+  int port;
+
+  entity_addr_t addr =  connection_state->get_peer_addr();
+  addr.to_string(host, port);
+
+  pipe_endpoint = ZTracer::create_ZTraceEndpoint(host, port, "Messenger-" + type);
 }
 
 Pipe::~Pipe()
@@ -1479,9 +1499,9 @@ void Pipe::reader()
 	  fault(true);
 	continue;
       }
-      ZTracer::ZTraceEndpointRef ep = ZTracer::create_ZTraceEndpoint("0.0.0.0", 0, "Messenger");
-      m->create_messenger_trace(ep);
+      m->create_messenger_trace(pipe_endpoint);
       m->trace_msgr("Message read");
+      m->trace_msg_info();
 
       if (state == STATE_CLOSED ||
 	  state == STATE_CONNECTING) {

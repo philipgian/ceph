@@ -130,9 +130,7 @@ bool entity_addr_t::parse(const char *s, const char **end)
   return true;
 }
 
-
-
-ostream& operator<<(ostream& out, const sockaddr_storage &ss)
+int ss_to_string(const sockaddr_storage &ss, string &host, int &port)
 {
   char buf[NI_MAXHOST] = { 0 };
   char serv[NI_MAXSERV] = { 0 };
@@ -147,8 +145,26 @@ ostream& operator<<(ostream& out, const sockaddr_storage &ss)
   getnameinfo((struct sockaddr *)&ss, hostlen, buf, sizeof(buf),
 	      serv, sizeof(serv),
 	      NI_NUMERICHOST | NI_NUMERICSERV);
-  if (ss.ss_family == AF_INET6)
-    return out << '[' << buf << "]:" << serv;
-  return out //<< ss.ss_family << ":"
-	     << buf << ':' << serv;
+  host = buf;
+  port = atoi(serv);
+  return 0;
 }
+
+int entity_addr_t::to_string(entity_addr_t addr, string &host, int &port)
+{
+  return ss_to_string(addr, host, port);
+}
+
+
+ostream& operator<<(ostream& out, const sockaddr_storage &ss)
+{
+  string host;
+  int port;
+
+  ss_to_string(ss, host, port);
+  if (ss.ss_family == AF_INET6)
+    return out << '[' << host << "]:" << port;
+  return out //<< ss.ss_family << ":"
+	     << host << ':' << port;
+}
+

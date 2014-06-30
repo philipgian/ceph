@@ -544,6 +544,8 @@ public:
   int init_trace_info(struct blkin_trace_info *tinfo);
   bool create_messenger_trace(ZTracer::ZTraceEndpointRef ep);
   void trace_msgr(string event);
+  void trace_msgr(string key, string val);
+  virtual void trace_msg_info() { };
 };
 typedef boost::intrusive_ptr<Message> MessageRef;
 

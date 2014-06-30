@@ -151,6 +151,7 @@ class DispatchQueue;
     ceph::shared_ptr<AuthSessionHandler> session_security;
 
   protected:
+    ZTracer::ZTraceEndpointRef pipe_endpoint;
     friend class SimpleMessenger;
     ConnectionRef connection_state;
 

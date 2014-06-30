@@ -393,6 +393,15 @@ struct ceph_osd_request_head {
     out << " e" << osdmap_epoch;
     out << ")";
   }
+
+  virtual void trace_msg_info()
+  {
+    ostringstream oss;
+    oss << get_reqid();
+
+    trace_msgr("Type", "MOSDOp");
+    trace_msgr("Reqid", oss.str());
+  }
 };
 
 
